@@ -23,8 +23,37 @@ html, body, #root {
   @apply flex items-center justify-center absolute inset-0 transition-colors duration-500 ease-in-out;
 }
 
+/* .counter-number { */
+  /* @apply text-[10vw] sm:text-[18vw] font-bold select-none; */
+/* } */
+
 .counter-number {
-  @apply text-[10vw] sm:text-[18vw] font-bold select-none;
+  @apply font-bold select-none;
+}
+
+.counter-number {		/* Default font size */
+  font-size: 18vw;
+}
+.counter-number.digits-6 {
+  font-size: 15vw;
+}
+.counter-number.digits-7 {
+  font-size: 14vw;
+}
+.counter-number.digits-8 {
+  font-size: 12vw;
+}
+.counter-number.digits-9 {
+  font-size: 11vw;
+}
+.counter-number.digits-10 {
+  font-size: 10vw;
+}
+.counter-number.digits-11 {
+  font-size: 9vw;
+}
+.counter-number.digits-12 {
+  font-size: 8vw;
 }
 
 /* Wrapper around buttons and popups */
@@ -40,10 +69,10 @@ html, body, #root {
   @apply top-4 right-4;
 }
 .control-wrapper.bottom-left {
-  @apply bottom-4 left-4;
+  @apply bottom-20 left-4 sm:bottom-4;
 }
 .control-wrapper.bottom-right {
-  @apply bottom-4 right-4;
+  @apply bottom-20 right-4 sm:bottom-4;
 }
 
 .font-option,
@@ -87,7 +116,7 @@ html, body, #root {
 
   /* Font option buttons */
  .font-option {
-	  @apply relative px-3 py-2 text-lg font-medium rounded-md duration-200 ease-in-out;
+	  @apply relative px-2 py-1 text-sm sm:px-3 sm:py-2 sm:text-lg font-medium rounded-md duration-200 ease-in-out;
 	  background: rgba(0, 0, 0, 0.35);
 	  box-shadow:
 		 inset 0 2px 4px rgba(255, 255, 255, 0.15),
@@ -122,7 +151,7 @@ html, body, #root {
 
 /* Popups */
 .popup-panel {
-  @apply absolute p-3 rounded-xl shadow-md z-40 min-w-[35vw];
+  @apply absolute p-3 rounded-xl shadow-md z-40 max-h-[75vh] min-w-[80vw] sm:min-w-[35vw];
   background: rgba(0, 0, 0, 0.35);
   box-shadow:
     0 4px 8px rgba(146, 84, 222, 0.3),
@@ -169,7 +198,7 @@ html, body, #root {
 
 /* Help popup */
 .help-popup {
-  @apply absolute bottom-[4.5rem] right-0 w-64 p-4 text-lg rounded-xl z-40 text-white;
+  @apply absolute bottom-[4.5rem] right-0 w-70 sm:w-85 p-4 text-xl sm:text-2xl rounded-xl z-40 text-white;
   background: rgba(0, 0, 0, 0.35);
   box-shadow:
     0 4px 8px rgba(146, 84, 222, 0.3),

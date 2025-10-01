@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 const fontOptions = [
@@ -42,31 +42,24 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false)
   const [prevCount, setPrevCount] = useState(0)
   const [direction, setDirection] = useState('up') // 'up' or 'down'
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  
+  const touchStartY = useRef(null);
+  const containerRef = useRef(null);
 
   const prevStr = prevCount.toString()
-	const currStr = count.toString()
-	// To compare digits from the right (ones place), pad the shorter string on the left with spaces
-	const maxLen = Math.max(prevStr.length, currStr.length)
-	const prevPadded = prevStr.padStart(maxLen, ' ')
-	const currPadded = currStr.padStart(maxLen, ' ')
-
-  const handleClick = (e) => {
-    if (e.target.closest('.control')) return
-
-    if (e.type === 'click') {	// LMB
-      setDirection('up')
-      setPrevCount(count)
-      setCount(prev => Math.min(9999999, prev + 1))
-    } else if (e.type === 'contextmenu') {	// RMB
-      e.preventDefault()
-      setDirection('down')
-      setPrevCount(count)
-      setCount(prev => Math.max(0, prev - 1))
-    }  else if (e.type === 'mousedown' && e.button === 1) {	// Scroll button
-		 e.preventDefault();
-		 setCount(0);
-	  }
-  }
+  const currStr = count.toString()
+  // To compare digits from the right (ones place), pad the shorter string on the left with spaces
+  const maxLen = Math.max(prevStr.length, currStr.length)
+  const prevPadded = prevStr.padStart(maxLen, ' ')
+  const currPadded = currStr.padStart(maxLen, ' ')
+  
+  const popupVariants = {
+	  hidden: { opacity: 0, scale: 1.2, pointerEvents: 'none' },
+	  visible: { opacity: 1, scale: 1, pointerEvents: 'auto' },
+	};
+	
+  const popupTransition = { duration: 0.2, ease: 'easeInOut' };
   
   const animatedDigits = currPadded.split('').map((digit, index) => {
     const prevDigit = prevPadded[index]
@@ -99,12 +92,92 @@ export default function App() {
     )
   })
   
-  const popupTransition = {	  	  
-	  initial: { opacity: 0, scale: 1.2, filter: 'blur(4px)' },
-	  animate: { opacity: 1, scale: 1, filter: 'blur(0px)' },
-	  exit: { opacity: 0, scale: 0.75, filter: 'blur(4px)' },
-	  transition: { duration: 0.3, ease: 'easeInOut' }	  
-	};
+  const handleClick = (e) => {
+    if (e.target.closest('.control')) return
+
+    if (e.type === 'click') {	// LMB
+      setDirection('up')
+      setPrevCount(count)
+      setCount(prev => Math.min(999999999999, prev + 1))
+    } else if (e.type === 'contextmenu') {	// RMB
+      e.preventDefault()
+      setDirection('down')
+      setPrevCount(count)
+      setCount(prev => Math.max(0, prev - 1))
+    }  else if (e.type === 'mousedown' && e.button === 1) {	// Scroll button
+		 e.preventDefault();
+		 setCount(0);
+	  }
+  }
+  
+  useEffect(() => {
+	  const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+	  setIsTouchDevice(isTouch);
+	}, []);
+  
+  useEffect(() => {
+	  const container = containerRef.current;
+	  if (!container) return;
+
+	  let timeoutId = null;
+	  let startY = 0;
+
+	  const handleTouchStart = (e) => {
+		 if (e.target.closest('.control')) return;
+
+		 startY = e.touches[0].clientY;
+
+		 // Start 2-second timer for reset
+		 timeoutId = setTimeout(() => {
+			setCount(0);
+		 }, 2000);
+	  };
+
+	  const handleTouchMove = (e) => {
+		 const currentY = e.touches[0].clientY;
+		 const deltaY = currentY - startY;
+
+		 // Cancel reset if moved
+		 if (Math.abs(deltaY) > 10 && timeoutId) {
+			clearTimeout(timeoutId);
+			timeoutId = null;
+		 }
+	  };
+
+	  const handleTouchEnd = (e) => {
+		 if (timeoutId) {
+			clearTimeout(timeoutId);
+			timeoutId = null;
+		 }
+
+		 const endY = e.changedTouches[0].clientY;
+		 const deltaY = startY - endY;
+
+		 if (Math.abs(deltaY) < 30) return; // Ignore minor swipes
+
+		 setPrevCount(count);
+
+		 if (deltaY > 30) {
+			// Swipe up = increment
+			setDirection('up');
+			setCount(prev => Math.min(999999999999, prev + 1));
+		 } else if (deltaY < -30) {
+			// Swipe down = decrement
+			setDirection('down');
+			setCount(prev => Math.max(0, prev - 1));
+		 }
+	  };
+
+	  container.addEventListener('touchstart', handleTouchStart, { passive: true });
+	  container.addEventListener('touchmove', handleTouchMove, { passive: true });
+	  container.addEventListener('touchend', handleTouchEnd);
+
+	  return () => {
+		 container.removeEventListener('touchstart', handleTouchStart);
+		 container.removeEventListener('touchmove', handleTouchMove);
+		 container.removeEventListener('touchend', handleTouchEnd);
+	  };
+	}, [count]);
 
 
   return (
@@ -113,12 +186,13 @@ export default function App() {
       style={{ fontFamily, backgroundColor: bgColor, '--font-color': fontColor }}
     >
       {/* Centered number */}
-      <div className="counter-container" 
+      <div ref={containerRef}
+			  className="counter-container" 
 			  onClick={handleClick}
 			  onContextMenu={handleClick}
 			  onMouseDown={handleClick}
 		>
-        <div className="counter-number flex">{animatedDigits}</div>
+        <div className={`counter-number flex digits-${count.toString().length}`}>{animatedDigits}</div>
       </div>
 		
 		{/* 🎨 Color Picker */}
@@ -128,29 +202,26 @@ export default function App() {
 		  onMouseLeave={() => setShowColors(false)}
 		>
 		  <div className="control-btn">
-			 <div className="icon-symbol">🖌</div>
+			 <div className="icon-symbol">&#9998;</div>
 		  </div>
-
-		  <AnimatePresence>
-			 {showColors && (
-				<motion.div
-				  key="font-color-popup"
-				  className="popup-panel color-popup top-full left-0"
-				  {...popupTransition}
-				>
-				  {colorOptions.map((color) => (
-					 <div
-						key={color}
-						className={`color-swatch ${fontColor === color ? 'selected' : ''}`}
-						style={{
-						  backgroundColor: fontColor === color ? color : `${color}cc`,
-						}}
-						onClick={() => setFontColor(color)}
-					 />
-				  ))}
-				</motion.div>
-			 )}
-		  </AnimatePresence>
+		  <motion.div
+			  className="popup-panel color-popup top-full left-0"
+			  variants={popupVariants}
+			  initial="hidden"
+			  animate={showColors ? "visible" : "hidden"}
+			  transition={popupTransition}
+			>
+			  {colorOptions.map((color) => (
+				 <div
+					key={color}
+					className={`color-swatch ${fontColor === color ? 'selected' : ''}`}
+					style={{
+					  backgroundColor: fontColor === color ? color : `${color}cc`,
+					}}
+					onClick={() => setFontColor(color)}
+				 />
+			  ))}
+			</motion.div>
 		</div>
 
       {/* 🅰️ Font Selector */}
@@ -160,32 +231,30 @@ export default function App() {
 		  onMouseLeave={() => setShowFonts(false)}
 		>
 		  <div className="control-btn">
-			 <div className="icon-symbol">🖋</div>
+			 <div className="icon-symbol">&#10001;</div>
 		  </div>
-		  <AnimatePresence>
-			  {showFonts && (
-				 <motion.div
-					key="font-selector-popup"
-					className="popup-panel font-popup top-full right-0"
-					{...popupTransition}
-				 >
-					<div className="font-popup-inner">
-					  {fontOptions.map((font) => (
-						 <button
-							key={font}
-							className={`font-option flex items-center justify-center ${
-							  fontFamily === font ? 'selected' : ''
-							}`}
-							style={{ fontFamily: font, '--font-color': fontColor }}
-							onClick={() => setFontFamily(font)}
-						 >
-							{font}
-						 </button>
-					  ))}
-					</div>
-				 </motion.div>
-			  )}
-			</AnimatePresence>
+		  <motion.div
+			 className="popup-panel font-popup top-full right-0"
+			 variants={popupVariants}
+			 initial="hidden"
+			 animate={showFonts ? "visible" : "hidden"}
+			 transition={popupTransition}
+		  >
+			 <div className="font-popup-inner">
+				{fontOptions.map((font) => (
+				  <button
+					 key={font}
+					 className={`font-option flex items-center justify-center ${
+						fontFamily === font ? 'selected' : ''
+					 }`}
+					 style={{ fontFamily: font, '--font-color': fontColor }}
+					 onClick={() => setFontFamily(font)}
+				  >
+					 {font}
+				  </button>
+				))}
+			 </div>
+		  </motion.div>
 		</div>
 		
 		{/* 🎨 Background Color Picker */}
@@ -195,28 +264,26 @@ export default function App() {
 		  onMouseLeave={() => setShowBgColors(false)}
 		>
 		  <div className="control-btn">
-			 <div className="icon-symbol">🌢</div>
+			 <div className="icon-symbol">&#9640;</div>
 		  </div>
-		  <AnimatePresence>
-			  {showBgColors && (
-				 <motion.div
-					key="bg-color-popup"
-					className="popup-panel color-popup bottom-full left-0 mb-2"
-					{...popupTransition}
-				 >
-					{colorOptions.map((color) => (
-					  <div
-						 key={color}
-						 className={`color-swatch ${bgColor === color ? 'selected' : ''}`}
-						 style={{
-							backgroundColor: bgColor === color ? color : `${color}cc`,
-						 }}
-						 onClick={() => setBgColor(color)}
-					  />
-					))}
-				 </motion.div>
-			  )}
-			</AnimatePresence>
+		  <motion.div
+			  className="popup-panel color-popup bottom-full left-0 mb-2"
+			  variants={popupVariants}
+			  initial="hidden"
+			  animate={showBgColors ? "visible" : "hidden"}
+			  transition={popupTransition}
+			>
+			  {colorOptions.map((color) => (
+				 <div
+					key={color}
+					className={`color-swatch ${bgColor === color ? 'selected' : ''}`}
+					style={{
+					  backgroundColor: bgColor === color ? color : `${color}cc`,
+					}}
+					onClick={() => setBgColor(color)}
+				 />
+			  ))}
+			</motion.div>
 		</div>
 
       {/* ❓ Help Popup */}
@@ -228,21 +295,31 @@ export default function App() {
 		  <div className="control-btn">
 			 <div className="icon-symbol">?</div>
 		  </div>
-		  <AnimatePresence>
-			  {showHelp && (
-				 <motion.div
-					key="help-popup"
-					className="help-popup bottom-full mb-2 right-0"
-					{...popupTransition}
-				 >
-					<p>Just another counter webapp.</p>
-					<p>Left click anywhere to increment.</p>
-					<p>Right click to decrement.</p>
-					<p>Middle click to reset.</p>
-					<p>Use corner buttons to change font and color.</p>
-				 </motion.div>
-			  )}
-			</AnimatePresence>
+		  <motion.div
+			  className="help-popup bottom-full mb-2 right-0"
+			  variants={popupVariants}
+			  initial="hidden"
+			  animate={showHelp ? "visible" : "hidden"}
+			  transition={popupTransition}
+			>
+			  {isTouchDevice ? (
+				  <>
+					 <p>Just another counter webapp.</p>
+					 <p>Swipe up anywhere to increment.</p>
+					 <p>Swipe down to decrement.</p>
+					 <p>Hold briefly to reset.</p>
+					 <p>Use corner buttons to change font and color.</p>
+				  </>
+				) : (
+				  <>
+					 <p>Just another counter webapp.</p>
+					 <p>Left click anywhere to increment.</p>
+					 <p>Right click to decrement.</p>
+					 <p>Middle click to reset.</p>
+					 <p>Use corner buttons to change font and color.</p>
+				  </>
+				)}
+			</motion.div>
 		</div>
     </div>
   )
